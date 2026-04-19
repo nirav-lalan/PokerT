@@ -1,0 +1,2047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Poker">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <title>Poker Transcon 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    html, body { margin: 0; padding: 0; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: Inter, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      background: #fff;
+      overscroll-behavior-y: contain;
+    }
+    #root { min-height: 100vh; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+    #screen-scroll::-webkit-scrollbar { display: none; }
+    #screen-scroll { scrollbar-width: none; }
+    @media (prefers-color-scheme: dark) { body { background: #000; } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+  <script>
+(function(){
+// Indian digit grouping for INR (e.g., 152200 -> 1,52,200)
+function formatINR(n, opts = {}) {
+  const {
+    sign = false,
+    unit = true
+  } = opts;
+  if (n == null || isNaN(n)) return '—';
+  const abs = Math.abs(Math.round(n));
+  // Group: last 3 digits, then groups of 2
+  const s = String(abs);
+  let out;
+  if (s.length <= 3) {
+    out = s;
+  } else {
+    const last3 = s.slice(-3);
+    const rest = s.slice(0, -3);
+    const grouped = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',');
+    out = grouped + ',' + last3;
+  }
+  const prefix = '';
+  if (n < 0) return '−' + prefix + out;
+  if (sign && n > 0) return '+' + prefix + out;
+  return prefix + out;
+}
+function formatPct(n) {
+  if (n == null || isNaN(n)) return '—';
+  return Math.round(n * 100) + '%';
+}
+function initials(name) {
+  return name.split(/\s+/).map(p => p[0]).join('').slice(0, 2).toUpperCase();
+}
+Object.assign(window, {
+  formatINR,
+  formatPct,
+  initials
+});
+})();
+
+(function(){
+// Simple monochrome line icons. stroke inherits currentColor.
+const Icon = {
+  trophy: (s = 22) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M7 4h10v4a5 5 0 0 1-10 0V4z"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M7 6H4v1a3 3 0 0 0 3 3"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M17 6h3v1a3 3 0 0 1-3 3"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M10 14h4v3h-4z"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M8 20h8"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M12 17v3"
+  })),
+  person: (s = 22) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("circle", {
+    cx: "12",
+    cy: "8",
+    r: "4"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M4 21c0-4 3.5-7 8-7s8 3 8 7"
+  })),
+  medal: (s = 22) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.5",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("circle", {
+    cx: "12",
+    cy: "14",
+    r: "6"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M8 3l2 5"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M16 3l-2 5"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "12",
+    cy: "14",
+    r: "2.2"
+  })),
+  chevron: (s = 14) => /*#__PURE__*/React.createElement("svg", {
+    width: s * 0.6,
+    height: s,
+    viewBox: "0 0 8 14",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.8",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M1 1l6 6-6 6"
+  })),
+  // Award icons
+  shark: (s = 20) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.4",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M3 12c4-6 10-7 15-5l3-2-1 5c2 2 2 5 0 7l1 4-4-2c-5 1-11-1-14-7z"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "15",
+    cy: "11",
+    r: "0.8",
+    fill: "currentColor"
+  })),
+  whale: (s = 20) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.4",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M3 14c0-4 4-7 9-7s9 3 9 7c0 2-1 3-3 4-2-2-5-2-6 0-1-2-4-2-6 0-2-1-3-2-3-4z"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M12 6V3M10 3h4"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "17",
+    cy: "12",
+    r: "0.7",
+    fill: "currentColor"
+  })),
+  ironman: (s = 20) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.4",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("rect", {
+    x: "2",
+    y: "10",
+    width: "4",
+    height: "4",
+    rx: "0.5"
+  }), /*#__PURE__*/React.createElement("rect", {
+    x: "18",
+    y: "10",
+    width: "4",
+    height: "4",
+    rx: "0.5"
+  }), /*#__PURE__*/React.createElement("rect", {
+    x: "6",
+    y: "8",
+    width: "2",
+    height: "8",
+    rx: "0.5"
+  }), /*#__PURE__*/React.createElement("rect", {
+    x: "16",
+    y: "8",
+    width: "2",
+    height: "8",
+    rx: "0.5"
+  }), /*#__PURE__*/React.createElement("rect", {
+    x: "8",
+    y: "11",
+    width: "8",
+    height: "2"
+  })),
+  clutch: (s = 20) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.4",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("circle", {
+    cx: "12",
+    cy: "12",
+    r: "9"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "12",
+    cy: "12",
+    r: "5"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "12",
+    cy: "12",
+    r: "1.5",
+    fill: "currentColor"
+  })),
+  heartbreaker: (s = 20) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.4",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M12 20s-8-5-8-11a5 5 0 0 1 8-4 5 5 0 0 1 8 4c0 6-8 11-8 11z"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M9 11l2 2 4-4",
+    strokeWidth: "1.6"
+  })),
+  nightmare: (s = 20) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.4",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M12 3l9 16H3z"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M12 10v4"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "12",
+    cy: "17",
+    r: "0.8",
+    fill: "currentColor"
+  })),
+  hothand: (s = 20) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.4",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M12 3c2 3 4 5 4 9a4 4 0 0 1-8 0c0-1 .5-2 1-3 .5 1.5 2 2 2 2s-1-3 1-8z"
+  })),
+  cooler: (s = 20) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.4",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M12 3v18M3 12h18M6 6l12 12M18 6L6 18"
+  })),
+  steady: (s = 20) => /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.4",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M3 18L8 10l4 4 4-6 5 7"
+  })),
+  closer: (s = 20) => /*#__PURE__*/React.createElement("svg", {width:s,height:s,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:"1.4",strokeLinecap:"round",strokeLinejoin:"round"},
+    /*#__PURE__*/React.createElement("path", {d:"M5 20V4"}),
+    /*#__PURE__*/React.createElement("path", {d:"M5 4l13 5-13 5"})
+  ),
+  banker: (s = 20) => /*#__PURE__*/React.createElement("svg", {width:s,height:s,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:"1.4",strokeLinecap:"round",strokeLinejoin:"round"},
+    /*#__PURE__*/React.createElement("ellipse", {cx:"12",cy:"16",rx:"7",ry:"2.5"}),
+    /*#__PURE__*/React.createElement("ellipse", {cx:"12",cy:"11",rx:"7",ry:"2.5"}),
+    /*#__PURE__*/React.createElement("path", {d:"M5 11v5M19 11v5"})
+  ),
+  sniper: (s = 20) => /*#__PURE__*/React.createElement("svg", {width:s,height:s,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor",strokeWidth:"1.4",strokeLinecap:"round",strokeLinejoin:"round"},
+    /*#__PURE__*/React.createElement("circle", {cx:"12",cy:"12",r:"4"}),
+    /*#__PURE__*/React.createElement("path", {d:"M12 2v6M12 16v6M2 12h6M16 12h6"})
+  ),
+  // Tab icons
+  tab_league: (s = 24, filled = false) => filled ? /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "currentColor"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M5 4h4v16H5zM10 10h4v10h-4zM15 7h4v13h-4z"
+  })) : /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.6",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("rect", {
+    x: "5",
+    y: "4",
+    width: "4",
+    height: "16",
+    rx: "0.5"
+  }), /*#__PURE__*/React.createElement("rect", {
+    x: "10",
+    y: "10",
+    width: "4",
+    height: "10",
+    rx: "0.5"
+  }), /*#__PURE__*/React.createElement("rect", {
+    x: "15",
+    y: "7",
+    width: "4",
+    height: "13",
+    rx: "0.5"
+  })),
+  tab_profile: (s = 24, filled = false) => filled ? /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "currentColor"
+  }, /*#__PURE__*/React.createElement("circle", {
+    cx: "12",
+    cy: "8",
+    r: "4"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M4 21c0-4 3.5-7 8-7s8 3 8 7v1H4z"
+  })) : /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.6",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("circle", {
+    cx: "12",
+    cy: "8",
+    r: "4"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M4 21c0-4 3.5-7 8-7s8 3 8 7"
+  })),
+  tab_awards: (s = 24, filled = false) => filled ? /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "currentColor"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M7 3h10v5a5 5 0 0 1-10 0V3zM10 13h4v4h-4zM8 19h8v2H8z"
+  })) : /*#__PURE__*/React.createElement("svg", {
+    width: s,
+    height: s,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.6",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M7 3h10v5a5 5 0 0 1-10 0V3z"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M7 5H4v1a3 3 0 0 0 3 3"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M17 5h3v1a3 3 0 0 1-3 3"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M10 13h4v4h-4zM8 19h8"
+  }))
+};
+window.Icon = Icon;
+})();
+
+(function(){
+// Compute all derived stats from sessions data
+window.PLAYERS = ["Vivek P", "Sunny", "Nirav", "Sameer", "Amish", "Nimesh", "Sagar", "Manish"];
+var PLAYERS = window.PLAYERS;
+function computeAll(sessions) {
+  const perPlayer = {};
+  for (const name of PLAYERS) {
+    perPlayer[name] = {
+      name,
+      net: 0,
+      gamesPlayed: 0,
+      wins: 0,
+      losses: 0,
+      biggestWin: {
+        amount: null,
+        session: null
+      },
+      biggestLoss: {
+        amount: null,
+        session: null
+      },
+      cumulative: [],
+      // [{ sessionIdx, dateLabel, dateISO, net, cumul }]
+      last5: [],
+      // recent sessions where they played: signs '+'/'-'
+      sessions: [],
+      // all sessions they played in order
+      longestWinStreak: 0,
+      longestLossStreak: 0,
+      currentStreak: {
+        type: null,
+        count: 0
+      },
+      // type: 'win'|'loss'|null, of most recent
+      stdDev: 0
+    };
+  }
+  sessions.forEach((s, i) => {
+    for (const name of PLAYERS) {
+      const p = perPlayer[name];
+      const net = s.nets[name];
+      if (net == null) {
+        // Didn't play — still push cumul for chart continuity
+        p.cumulative.push({
+          sessionIdx: i,
+          dateLabel: s.dateLabel,
+          dateISO: s.dateISO,
+          net: null,
+          cumul: p.net,
+          played: false
+        });
+        continue;
+      }
+      p.net += net;
+      p.gamesPlayed += 1;
+      if (net > 0) p.wins += 1;else if (net < 0) p.losses += 1;
+      if (p.biggestWin.amount == null || net > p.biggestWin.amount) {
+        p.biggestWin = {
+          amount: net,
+          session: s
+        };
+      }
+      if (p.biggestLoss.amount == null || net < p.biggestLoss.amount) {
+        p.biggestLoss = {
+          amount: net,
+          session: s
+        };
+      }
+      p.cumulative.push({
+        sessionIdx: i,
+        dateLabel: s.dateLabel,
+        dateISO: s.dateISO,
+        net,
+        cumul: p.net,
+        played: true
+      });
+      p.sessions.push({
+        sessionIdx: i,
+        dateLabel: s.dateLabel,
+        dateISO: s.dateISO,
+        net
+      });
+    }
+  });
+
+  // Win rate, avg/session, streaks, last5, stdDev
+  for (const name of PLAYERS) {
+    const p = perPlayer[name];
+    p.winRate = p.gamesPlayed ? p.wins / p.gamesPlayed : 0;
+    p.avgPerSession = p.gamesPlayed ? p.net / p.gamesPlayed : 0;
+
+    // last 5 played sessions, most recent last
+    p.last5 = p.sessions.slice(-5).map(x => x.net);
+
+    // streaks over played sessions (chronological)
+    let curWin = 0,
+      curLoss = 0,
+      maxWin = 0,
+      maxLoss = 0;
+    for (const x of p.sessions) {
+      if (x.net > 0) {
+        curWin++;
+        curLoss = 0;
+        maxWin = Math.max(maxWin, curWin);
+      } else if (x.net < 0) {
+        curLoss++;
+        curWin = 0;
+        maxLoss = Math.max(maxLoss, curLoss);
+      } else {
+        curWin = 0;
+        curLoss = 0;
+      }
+    }
+    p.longestWinStreak = maxWin;
+    p.longestLossStreak = maxLoss;
+
+    // current streak (from most recent played session going backwards)
+    let cs = {
+      type: null,
+      count: 0
+    };
+    for (let i = p.sessions.length - 1; i >= 0; i--) {
+      const n = p.sessions[i].net;
+      const t = n > 0 ? 'win' : n < 0 ? 'loss' : null;
+      if (cs.type == null) {
+        if (t == null) break;
+        cs.type = t;
+        cs.count = 1;
+      } else if (t === cs.type) {
+        cs.count++;
+      } else break;
+    }
+    p.currentStreak = cs;
+
+    // std dev of per-session nets (for "Steady" award — lower is steadier, among positive-net players)
+    if (p.sessions.length > 1) {
+      const mean = p.avgPerSession;
+      const variance = p.sessions.reduce((a, x) => a + (x.net - mean) ** 2, 0) / p.sessions.length;
+      p.stdDev = Math.sqrt(variance);
+    }
+  }
+
+  // League ranking by net desc
+  const league = PLAYERS.map(n => perPlayer[n]).sort((a, b) => b.net - a.net);
+  league.forEach((p, i) => p.rank = i + 1);
+
+  // Per-session hosting fee — adjust as needed
+  const SESSION_FEE = 1000;
+
+  // Profitability factor & fee-adjusted ranking
+  for (const name of PLAYERS) {
+    const p = perPlayer[name];
+    p.grossWins = p.sessions.filter(s => s.net > 0).reduce((sum, s) => sum + s.net, 0);
+    p.grossLosses = p.sessions.filter(s => s.net < 0).reduce((sum, s) => sum + Math.abs(s.net), 0);
+    p.profitabilityFactor = p.grossLosses > 0 ? p.grossWins / p.grossLosses : null;
+    p.netAfterFee = p.net - p.gamesPlayed * SESSION_FEE;
+  }
+  const leagueAfterFee = [...league].sort((a, b) => b.netAfterFee - a.netAfterFee);
+  leagueAfterFee.forEach((p, i) => p.rankAfterFee = i + 1);
+
+  // Totals
+  const totalPot = sessions.reduce((a, s) => a + (s.totalPot || 0), 0);
+  const totalSessions = sessions.length;
+
+  // Awards
+  const awards = computeAwards(perPlayer, league, sessions);
+  return {
+    perPlayer,
+    league,
+    totalPot,
+    totalSessions,
+    awards
+  };
+}
+function computeAwards(perPlayer, league, sessions) {
+  const by = (key, dir = 'desc') => {
+    const arr = [...league];
+    arr.sort((a, b) => dir === 'desc' ? b[key] - a[key] : a[key] - b[key]);
+    return arr[0];
+  };
+  const shark = league[0];
+  const whale = league[league.length - 1];
+  const ironMan = by('gamesPlayed');
+  // Clutch: best win rate with at least 10 games (fallback to all players if nobody qualifies yet)
+  const eligibleClutch = league.filter(p => p.gamesPlayed >= 10);
+  const clutchPool = eligibleClutch.length > 0 ? eligibleClutch : league;
+  const clutch = [...clutchPool].sort((a, b) => b.winRate - a.winRate)[0];
+
+  // Heartbreaker: biggest single win across all players
+  let heartbreaker = {
+    amount: -Infinity,
+    player: null,
+    session: null
+  };
+  for (const p of league) {
+    if (p.biggestWin.amount != null && p.biggestWin.amount > heartbreaker.amount) {
+      heartbreaker = {
+        amount: p.biggestWin.amount,
+        player: p,
+        session: p.biggestWin.session
+      };
+    }
+  }
+  // Nightmare: biggest single loss
+  let nightmare = {
+    amount: Infinity,
+    player: null,
+    session: null
+  };
+  for (const p of league) {
+    if (p.biggestLoss.amount != null && p.biggestLoss.amount < nightmare.amount) {
+      nightmare = {
+        amount: p.biggestLoss.amount,
+        player: p,
+        session: p.biggestLoss.session
+      };
+    }
+  }
+
+  // Hot Hand: longest win streak
+  const hotHand = [...league].sort((a, b) => b.longestWinStreak - a.longestWinStreak)[0];
+  // Cooler: longest loss streak
+  const cooler = [...league].sort((a, b) => b.longestLossStreak - a.longestLossStreak)[0];
+
+  // Steady: lowest stdDev among positive-net players with >= 10 games
+  const steadyPool = league.filter(p => p.net > 0 && p.gamesPlayed >= 10);
+  const steady = [...steadyPool].sort((a, b) => a.stdDev - b.stdDev)[0] || league[0];
+
+  // Closer: best average over last 5 sessions
+  const closerPool = league.filter(p => p.last5.length >= 3);
+  const closer = (closerPool.length > 0 ? closerPool : league.filter(p => p.gamesPlayed > 0))
+    .sort((a, b) => (b.last5.reduce((s,n)=>s+n,0)/b.last5.length) - (a.last5.reduce((s,n)=>s+n,0)/a.last5.length))[0];
+  const closerAvg = Math.round(closer.last5.reduce((s,n)=>s+n,0) / closer.last5.length);
+
+  // Banker: most winning sessions
+  const banker = [...league].sort((a, b) => b.wins - a.wins)[0];
+
+  // Sniper: highest avg/session among 10+ game players with positive avg
+  const sniperPool = league.filter(p => p.gamesPlayed >= 10 && p.avgPerSession > 0);
+  const sniper = (sniperPool.length > 0 ? sniperPool : league.filter(p => p.gamesPlayed >= 5 && p.avgPerSession > 0))
+    .sort((a, b) => b.avgPerSession - a.avgPerSession)[0] || league[0];
+
+  return [{
+    id: 'shark',
+    title: 'Shark',
+    desc: 'Top net for the season',
+    player: shark,
+    stat: formatINR(shark.net, {
+      sign: true
+    })
+  }, {
+    id: 'clutch',
+    title: 'Clutch',
+    desc: 'Best win rate',
+    player: clutch,
+    stat: formatPct(clutch.winRate) + ' · ' + clutch.wins + '/' + clutch.gamesPlayed
+  }, {
+    id: 'heartbreaker',
+    title: 'Heartbreaker',
+    desc: 'Biggest single win',
+    player: heartbreaker.player,
+    stat: formatINR(heartbreaker.amount, {
+      sign: true
+    }) + ' · ' + heartbreaker.session.dateLabel
+  }, {
+    id: 'hothand',
+    title: 'Hot Hand',
+    desc: 'Longest win streak',
+    player: hotHand,
+    stat: hotHand.longestWinStreak + ' in a row'
+  }, {
+    id: 'ironman',
+    title: 'Iron Man',
+    desc: 'Most sessions played',
+    player: ironMan,
+    stat: ironMan.gamesPlayed + ' sessions'
+  }, {
+    id: 'steady',
+    title: 'Steady',
+    desc: 'Most consistent winner',
+    player: steady,
+    stat: '±' + formatINR(steady.stdDev, {
+      unit: false
+    }).replace('−', '') + ' / session'
+  }, {
+    id: 'closer',
+    title: 'Closer',
+    desc: 'Best average over the last 5 sessions',
+    player: closer,
+    stat: formatINR(closerAvg, {sign: true}) + ' · last 5 avg'
+  }, {
+    id: 'banker',
+    title: 'Banker',
+    desc: 'Most sessions finishing in profit',
+    player: banker,
+    stat: banker.wins + ' winning sessions'
+  }, {
+    id: 'sniper',
+    title: 'Sniper',
+    desc: 'Highest average per session (10+ games)',
+    player: sniper,
+    stat: formatINR(Math.round(sniper.avgPerSession), {sign: true}) + ' / session'
+  }];
+}
+window.computeAll = computeAll;
+})();
+
+(function(){
+// League screen: leaderboard is the hero
+const {
+  formatINR,
+  formatPct,
+  initials
+} = window;
+function Avatar({
+  name,
+  size = 36,
+  colors
+}) {
+  const text = colors.avatarText;
+  const bg = colors.avatarBg;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: size,
+      height: size,
+      borderRadius: size / 2,
+      background: bg,
+      color: text,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: size * 0.37,
+      fontWeight: 600,
+      letterSpacing: -0.2,
+      flexShrink: 0
+    }
+  }, initials(name));
+}
+function LeagueScreen({
+  state,
+  goTo,
+  colors,
+  accent
+}) {
+  const {
+    league,
+    totalPot,
+    totalSessions
+  } = state;
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '12px 20px 4px'
+    }
+  }, /*#__PURE__*/React.createElement("h1", {
+    style: {
+      fontSize: 34,
+      fontWeight: 700,
+      letterSpacing: -0.8,
+      lineHeight: 1.05,
+      margin: 0,
+      color: colors.text
+    }
+  }, "League"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 15,
+      color: colors.textTertiary,
+      marginTop: 4,
+      letterSpacing: -0.2
+    }
+  }, "2026 season")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      padding: '20px 20px 28px',
+      gap: 24
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: colors.textTertiary,
+      letterSpacing: -0.1,
+      marginBottom: 4,
+      textTransform: 'uppercase',
+      fontWeight: 500
+    }
+  }, "Sessions"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 28,
+      fontWeight: 600,
+      letterSpacing: -0.8,
+      color: colors.text,
+      fontVariantNumeric: 'tabular-nums'
+    }
+  }, totalSessions)), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: colors.textTertiary,
+      letterSpacing: -0.1,
+      marginBottom: 4,
+      textTransform: 'uppercase',
+      fontWeight: 500
+    }
+  }, "Total pot"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 28,
+      fontWeight: 600,
+      letterSpacing: -0.8,
+      color: colors.text,
+      fontVariantNumeric: 'tabular-nums'
+    }
+  }, formatINR(totalPot)))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      padding: '0 20px 10px',
+      fontSize: 11,
+      color: colors.textTertiary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+      fontWeight: 500
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 24
+    }
+  }, "#"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 36
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      paddingLeft: 12
+    }
+  }, "Player"), /*#__PURE__*/React.createElement("div", null, "Net")), /*#__PURE__*/React.createElement("div", null, league.map((p, i) => /*#__PURE__*/React.createElement(LeagueRow, {
+    key: p.name,
+    p: p,
+    last: i === league.length - 1,
+    onClick: () => goTo({
+      tab: 'profile',
+      playerName: p.name
+    }),
+    colors: colors,
+    accent: accent
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: 120
+    }
+  }));
+}
+function LeagueRow({
+  p,
+  last,
+  onClick,
+  colors,
+  accent
+}) {
+  const [pressed, setPressed] = React.useState(false);
+  const netColor = p.net > 0 ? colors.positive : p.net < 0 ? colors.negative : colors.text;
+  return /*#__PURE__*/React.createElement("div", {
+    onMouseDown: () => setPressed(true),
+    onMouseUp: () => setPressed(false),
+    onMouseLeave: () => setPressed(false),
+    onTouchStart: () => setPressed(true),
+    onTouchEnd: () => setPressed(false),
+    onClick: onClick,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      padding: '14px 20px',
+      background: pressed ? colors.pressed : 'transparent',
+      cursor: 'pointer',
+      userSelect: 'none',
+      transition: 'background 120ms ease',
+      borderBottom: last ? 'none' : `0.5px solid ${colors.separator}`,
+      position: 'relative'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 24,
+      fontSize: 17,
+      fontWeight: 500,
+      color: colors.textSecondary,
+      fontVariantNumeric: 'tabular-nums',
+      letterSpacing: -0.4
+    }
+  }, p.rank), /*#__PURE__*/React.createElement(Avatar, {
+    name: p.name,
+    size: 36,
+    colors: colors
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      paddingLeft: 12,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 17,
+      fontWeight: 500,
+      color: colors.text,
+      letterSpacing: -0.4,
+      lineHeight: 1.2
+    }
+  }, p.name), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: colors.textTertiary,
+      marginTop: 2,
+      letterSpacing: -0.08,
+      fontVariantNumeric: 'tabular-nums'
+    }
+  }, p.gamesPlayed, " games \xB7 ", formatPct(p.winRate), " wins")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 17,
+      fontWeight: 600,
+      color: netColor,
+      fontVariantNumeric: 'tabular-nums',
+      letterSpacing: -0.4,
+      textAlign: 'right'
+    }
+  }, formatINR(p.net, {
+    sign: true
+  })));
+}
+Object.assign(window, {
+  LeagueScreen,
+  Avatar
+});
+})();
+
+(function(){
+// Profile screen: hero is the cumulative bankroll chart
+const {
+  formatINR,
+  formatPct
+} = window;
+function BankrollChart({
+  player,
+  colors,
+  accent,
+  width = 362,
+  height = 180
+}) {
+  // Use only played points for the line; fill between them
+  const pts = player.cumulative.map((p, i) => ({
+    ...p,
+    i
+  }));
+  const played = pts.filter(p => p.played || p.i === 0);
+  // Include a (0,0) starting point before first session
+  const series = [{
+    i: -1,
+    cumul: 0
+  }, ...pts];
+  const xs = series.map(p => p.i);
+  const ys = series.map(p => p.cumul);
+  const minY = Math.min(0, ...ys);
+  const maxY = Math.max(0, ...ys);
+  const padY = Math.max(2000, (maxY - minY) * 0.08);
+  const yMin = minY - padY;
+  const yMax = maxY + padY;
+  const padL = 8,
+    padR = 8,
+    padT = 10,
+    padB = 22;
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
+  const xOf = i => padL + (i - xs[0]) / (xs[xs.length - 1] - xs[0]) * plotW;
+  const yOf = v => padT + (1 - (v - yMin) / (yMax - yMin)) * plotH;
+  const y0 = yOf(0);
+  const linePath = series.map((p, k) => (k === 0 ? 'M' : 'L') + xOf(p.i).toFixed(1) + ' ' + yOf(p.cumul).toFixed(1)).join(' ');
+  const areaPath = linePath + ' L ' + xOf(series[series.length - 1].i).toFixed(1) + ' ' + y0.toFixed(1) + ' L ' + xOf(series[0].i).toFixed(1) + ' ' + y0.toFixed(1) + ' Z';
+  const endColor = player.net >= 0 ? colors.positive : colors.negative;
+  const fillId = 'fill-' + player.name.replace(/\W/g, '');
+
+  // Minimal axis ticks: first + last session labels
+  const firstLabel = pts[0]?.dateLabel?.split(' ').slice(0, 2).join(' ');
+  const lastLabel = pts[pts.length - 1]?.dateLabel?.split(' ').slice(0, 2).join(' ');
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '8px 16px 4px'
+    }
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: width,
+    height: height,
+    style: {
+      display: 'block',
+      overflow: 'visible'
+    }
+  }, /*#__PURE__*/React.createElement("defs", null, /*#__PURE__*/React.createElement("linearGradient", {
+    id: fillId,
+    x1: "0",
+    x2: "0",
+    y1: "0",
+    y2: "1"
+  }, /*#__PURE__*/React.createElement("stop", {
+    offset: "0%",
+    stopColor: endColor,
+    stopOpacity: "0.18"
+  }), /*#__PURE__*/React.createElement("stop", {
+    offset: "100%",
+    stopColor: endColor,
+    stopOpacity: "0"
+  }))), /*#__PURE__*/React.createElement("line", {
+    x1: padL,
+    x2: width - padR,
+    y1: y0,
+    y2: y0,
+    stroke: colors.separator,
+    strokeWidth: "0.8",
+    strokeDasharray: "2 3"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: areaPath,
+    fill: `url(#${fillId})`
+  }), /*#__PURE__*/React.createElement("path", {
+    d: linePath,
+    fill: "none",
+    stroke: endColor,
+    strokeWidth: "2",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: xOf(series[series.length - 1].i),
+    cy: yOf(series[series.length - 1].cumul),
+    r: "3.5",
+    fill: endColor
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: xOf(series[series.length - 1].i),
+    cy: yOf(series[series.length - 1].cumul),
+    r: "7",
+    fill: endColor,
+    opacity: "0.18"
+  }), /*#__PURE__*/React.createElement("text", {
+    x: padL,
+    y: height - 4,
+    fontSize: "11",
+    fill: colors.textTertiary,
+    fontFamily: "inherit",
+    letterSpacing: "-0.1"
+  }, firstLabel), /*#__PURE__*/React.createElement("text", {
+    x: width - padR,
+    y: height - 4,
+    fontSize: "11",
+    fill: colors.textTertiary,
+    fontFamily: "inherit",
+    textAnchor: "end",
+    letterSpacing: "-0.1"
+  }, lastLabel)));
+}
+function StatCell({
+  label,
+  value,
+  color,
+  colors
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '14px 0'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: colors.textTertiary,
+      textTransform: 'uppercase',
+      fontWeight: 500,
+      letterSpacing: 0.2,
+      marginBottom: 6
+    }
+  }, label), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 20,
+      fontWeight: 600,
+      letterSpacing: -0.5,
+      color: color || colors.text,
+      fontVariantNumeric: 'tabular-nums'
+    }
+  }, value));
+}
+function Last5Dots({
+  last5,
+  colors
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 5,
+      alignItems: 'center'
+    }
+  }, last5.map((n, i) => {
+    const c = n > 0 ? colors.positive : n < 0 ? colors.negative : colors.textTertiary;
+    return /*#__PURE__*/React.createElement("div", {
+      key: i,
+      style: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        background: c
+      }
+    });
+  }), last5.length === 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: colors.textTertiary,
+      fontSize: 17
+    }
+  }, "\u2014"));
+}
+function ProfileScreen({
+  state,
+  selectedName,
+  setSelectedName,
+  colors,
+  accent
+}) {
+  const {
+    league,
+    perPlayer
+  } = state;
+  const player = perPlayer[selectedName];
+  const [pickerOpen, setPickerOpen] = React.useState(false);
+  const netColor = player.net > 0 ? colors.positive : player.net < 0 ? colors.negative : colors.text;
+  const streakLabel = (() => {
+    const cs = player.currentStreak;
+    if (!cs.type || cs.count < 2) return null;
+    return ` · on a ${cs.count}-${cs.type} streak`;
+  })();
+
+  // Last 6 sessions player played in, most recent first
+  const last6 = [...player.sessions].reverse().slice(0, 6);
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '8px 20px 4px'
+    }
+  }, /*#__PURE__*/React.createElement("h1", {
+    style: {
+      fontSize: 34,
+      fontWeight: 700,
+      letterSpacing: -0.8,
+      lineHeight: 1.05,
+      margin: 0,
+      color: colors.text
+    }
+  }, "Profile")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '14px 20px 8px'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setPickerOpen(v => !v),
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '8px 14px 8px 10px',
+      background: colors.chip,
+      border: 'none',
+      borderRadius: 100,
+      cursor: 'pointer',
+      fontSize: 15,
+      fontWeight: 500,
+      color: colors.text,
+      letterSpacing: -0.2
+    }
+  }, /*#__PURE__*/React.createElement(Avatar, {
+    name: player.name,
+    size: 24,
+    colors: colors
+  }), player.name, /*#__PURE__*/React.createElement("svg", {
+    width: "12",
+    height: "12",
+    viewBox: "0 0 12 12",
+    style: {
+      marginLeft: 2,
+      opacity: 0.5
+    }
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M3 5l3 3 3-3",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "1.6",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }))), pickerOpen && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 8,
+      background: colors.surface,
+      borderRadius: 14,
+      overflow: 'hidden',
+      boxShadow: `0 0 0 0.5px ${colors.separator}`
+    }
+  }, league.map((p, i) => /*#__PURE__*/React.createElement("div", {
+    key: p.name,
+    onClick: () => {
+      setSelectedName(p.name);
+      setPickerOpen(false);
+    },
+    style: {
+      padding: '12px 14px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      cursor: 'pointer',
+      borderBottom: i === league.length - 1 ? 'none' : `0.5px solid ${colors.separator}`,
+      background: p.name === selectedName ? colors.pressed : 'transparent'
+    }
+  }, /*#__PURE__*/React.createElement(Avatar, {
+    name: p.name,
+    size: 24,
+    colors: colors
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      fontSize: 15,
+      color: colors.text,
+      letterSpacing: -0.2
+    }
+  }, p.name), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: colors.textTertiary,
+      fontVariantNumeric: 'tabular-nums'
+    }
+  }, "#", p.rank))))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '24px 20px 6px'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: colors.textTertiary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+      fontWeight: 500,
+      marginBottom: 6
+    }
+  }, "Net \xB7 2026"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 56,
+      fontWeight: 700,
+      letterSpacing: -2,
+      lineHeight: 1,
+      color: netColor,
+      fontVariantNumeric: 'tabular-nums'
+    }
+  }, formatINR(player.net, {
+    sign: true
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 15,
+      color: colors.textSecondary,
+      marginTop: 10,
+      letterSpacing: -0.2
+    }
+  }, "Rank ", player.rank, " of ", league.length, streakLabel)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 20
+    }
+  }, /*#__PURE__*/React.createElement(BankrollChart, {
+    player: player,
+    colors: colors,
+    accent: accent
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      margin: '8px 20px 0',
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      columnGap: 24
+    }
+  }, /*#__PURE__*/React.createElement(StatCell, {
+    label: "Win rate",
+    value: formatPct(player.winRate),
+    colors: colors
+  }), /*#__PURE__*/React.createElement(StatCell, {
+    label: "Sessions",
+    value: player.gamesPlayed,
+    colors: colors
+  }), /*#__PURE__*/React.createElement(StatCell, {
+    label: "Biggest win",
+    value: player.biggestWin.amount != null ? formatINR(player.biggestWin.amount, {
+      sign: true
+    }) : '—',
+    color: player.biggestWin.amount != null ? colors.positive : undefined,
+    colors: colors
+  }), /*#__PURE__*/React.createElement(StatCell, {
+    label: "Biggest loss",
+    value: player.biggestLoss.amount != null ? formatINR(player.biggestLoss.amount) : '—',
+    color: player.biggestLoss.amount != null && player.biggestLoss.amount < 0 ? colors.negative : undefined,
+    colors: colors
+  }), /*#__PURE__*/React.createElement(StatCell, {
+    label: "Avg / session",
+    value: formatINR(Math.round(player.avgPerSession), {
+      sign: true
+    }),
+    color: player.avgPerSession > 0 ? colors.positive : player.avgPerSession < 0 ? colors.negative : undefined,
+    colors: colors
+  }), /*#__PURE__*/React.createElement(StatCell, {
+    label: "Profit factor",
+    value: player.profitabilityFactor != null ? player.profitabilityFactor.toFixed(2) + '×' : player.grossWins > 0 ? '∞' : '—',
+    color: player.profitabilityFactor != null ? (player.profitabilityFactor >= 1 ? colors.positive : colors.negative) : player.grossWins > 0 ? colors.positive : undefined,
+    colors: colors
+  }), /*#__PURE__*/React.createElement(StatCell, {
+    label: "Rank (gross)",
+    value: '#' + player.rank + ' of ' + league.length,
+    colors: colors
+  }), /*#__PURE__*/React.createElement(StatCell, {
+    label: "Rank (after fee)",
+    value: '#' + player.rankAfterFee + ' of ' + league.length,
+    colors: colors
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '14px 0'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: colors.textTertiary,
+      textTransform: 'uppercase',
+      fontWeight: 500,
+      letterSpacing: 0.2,
+      marginBottom: 10
+    }
+  }, "Last 5"), /*#__PURE__*/React.createElement(Last5Dots, {
+    last5: player.last5,
+    colors: colors
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 24,
+      padding: '0 20px 10px',
+      fontSize: 11,
+      color: colors.textTertiary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+      fontWeight: 500
+    }
+  }, "Recent sessions"), /*#__PURE__*/React.createElement("div", null, last6.map((s, i) => {
+    const c = s.net > 0 ? colors.positive : s.net < 0 ? colors.negative : colors.text;
+    return /*#__PURE__*/React.createElement("div", {
+      key: i,
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        padding: '14px 20px',
+        borderBottom: i === last6.length - 1 ? 'none' : `0.5px solid ${colors.separator}`
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 16,
+        fontWeight: 500,
+        color: colors.text,
+        letterSpacing: -0.3
+      }
+    }, s.dateLabel)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 17,
+        fontWeight: 600,
+        color: c,
+        fontVariantNumeric: 'tabular-nums',
+        letterSpacing: -0.3
+      }
+    }, formatINR(s.net, {
+      sign: true
+    })));
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: 120
+    }
+  }));
+}
+Object.assign(window, {
+  ProfileScreen
+});
+})();
+
+(function(){
+// Awards screen
+const {
+  formatINR
+} = window;
+function AwardRow({
+  award,
+  last,
+  colors,
+  onClick
+}) {
+  const Ic = window.Icon[award.id];
+  const [pressed, setPressed] = React.useState(false);
+  const [showDesc, setShowDesc] = React.useState(false);
+  return /*#__PURE__*/React.createElement("div", {
+    onMouseDown: () => setPressed(true),
+    onMouseUp: () => setPressed(false),
+    onMouseLeave: () => setPressed(false),
+    onTouchStart: () => setPressed(true),
+    onTouchEnd: () => setPressed(false),
+    onClick: onClick,
+    style: {
+      display: 'flex',
+      alignItems: 'flex-start',
+      padding: '14px 20px',
+      background: pressed ? colors.pressed : 'transparent',
+      cursor: 'pointer',
+      userSelect: 'none',
+      transition: 'background 120ms ease',
+      borderBottom: last ? 'none' : `0.5px solid ${colors.separator}`
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      background: colors.iconBg,
+      color: colors.textSecondary,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+      marginTop: 1
+    }
+  }, Ic(22)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      paddingLeft: 14,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 17,
+      fontWeight: 600,
+      color: colors.text,
+      letterSpacing: -0.4,
+      lineHeight: 1.2
+    }
+  }, award.title), /*#__PURE__*/React.createElement("button", {
+    onClick: (e) => { e.stopPropagation(); setShowDesc(v => !v); },
+    style: {
+      width: 16,
+      height: 16,
+      borderRadius: 8,
+      background: showDesc ? colors.textSecondary : colors.separator,
+      border: 'none',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: showDesc ? colors.bg : colors.textTertiary,
+      fontSize: 9,
+      fontWeight: 700,
+      flexShrink: 0,
+      padding: 0,
+      fontFamily: 'inherit',
+      letterSpacing: 0
+    }
+  }, 'i')), showDesc && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginTop: 4,
+      marginBottom: 2,
+      letterSpacing: -0.1,
+      lineHeight: 1.4
+    }
+  }, award.desc), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: colors.textTertiary,
+      marginTop: 2,
+      letterSpacing: -0.08
+    }
+  }, award.player?.name || '—', " \xB7 ", award.stat)));
+}
+function AwardsScreen({
+  state,
+  goTo,
+  colors,
+  accent
+}) {
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '12px 20px 4px'
+    }
+  }, /*#__PURE__*/React.createElement("h1", {
+    style: {
+      fontSize: 34,
+      fontWeight: 700,
+      letterSpacing: -0.8,
+      lineHeight: 1.05,
+      margin: 0,
+      color: colors.text
+    }
+  }, "Awards"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 15,
+      color: colors.textTertiary,
+      marginTop: 4,
+      letterSpacing: -0.2
+    }
+  }, "Season to date")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: 20
+    }
+  }), /*#__PURE__*/React.createElement("div", null, state.awards.map((a, i) => /*#__PURE__*/React.createElement(AwardRow, {
+    key: a.id,
+    award: a,
+    last: i === state.awards.length - 1,
+    colors: colors,
+    onClick: () => a.player && goTo({
+      tab: 'profile',
+      playerName: a.player.name
+    })
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: 120
+    }
+  }));
+}
+Object.assign(window, {
+  AwardsScreen
+});
+})();
+
+(function(){
+// Production App shell: live data from published Google Sheet CSV, real-phone ergonomics, theme toggle.
+// Design tokens, typography, and component structure preserved from the original design.
+
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ9FrTOKGEGrVWoQo6pGQAou1vkZAN4aGgCa9iL9Roby4ZzklGiiaUejaTG6J6EceGlZzpAZ6OC0KH5/pub?output=csv';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyaYJR0esEa0aauy83yvHKumsYTzzM0JDsJmYFeOUqy6hu5Ko2SGlswrFI7ghhIy2Q2Zw/exec';
+const REFRESH_INTERVAL_MS = 2 * 60 * 1000;
+
+// Verified session data — all 27 sessions cross-checked (Sameer: 22 games, net +92,850).
+// Live CSV fetch will replace this if it returns >= 27 sessions (new games added to sheet).
+const STATIC_SESSIONS = [
+  {dateLabel:"01 Jan 2026",dateISO:"2026-01-01",nets:{"Vivek P":-8700,"Sunny":-5200,"Nirav":-10500,"Sameer":3600,"Amish":4500,"Nimesh":null,"Sagar":16300,"Manish":null},other:null,otherDesc:null,totalPot:24400},
+  {dateLabel:"03 Jan 2026",dateISO:"2026-01-03",nets:{"Vivek P":-6400,"Sunny":13850,"Nirav":3550,"Sameer":-17050,"Amish":9350,"Nimesh":13500,"Sagar":-6800,"Manish":null},other:-10000,otherDesc:"Nikhil",totalPot:40250},
+  {dateLabel:"09 Jan 2026",dateISO:"2026-01-09",nets:{"Vivek P":8700,"Sunny":11700,"Nirav":-850,"Sameer":null,"Amish":-8600,"Nimesh":null,"Sagar":-3800,"Manish":-7150},other:null,otherDesc:null,totalPot:20400},
+  {dateLabel:"11 Jan 2026",dateISO:"2026-01-11",nets:{"Vivek P":null,"Sunny":-3850,"Nirav":-13000,"Sameer":14000,"Amish":-3500,"Nimesh":-2550,"Sagar":7500,"Manish":1400},other:null,otherDesc:null,totalPot:22900},
+  {dateLabel:"14 Jan 2026",dateISO:"2026-01-14",nets:{"Vivek P":null,"Sunny":-14500,"Nirav":-7700,"Sameer":4700,"Amish":-5400,"Nimesh":null,"Sagar":13400,"Manish":4900},other:4600,otherDesc:"Vishal, Vikas",totalPot:27600},
+  {dateLabel:"15 Jan 2026 (S1)",dateISO:"2026-01-15",nets:{"Vivek P":-3550,"Sunny":-8850,"Nirav":null,"Sameer":23700,"Amish":-15300,"Nimesh":6250,"Sagar":-10900,"Manish":-1650},other:10300,otherDesc:"Arjun",totalPot:40250},
+  {dateLabel:"15 Jan 2026 (S2)",dateISO:"2026-01-15",nets:{"Vivek P":9550,"Sunny":-3800,"Nirav":6450,"Sameer":null,"Amish":1000,"Nimesh":-3800,"Sagar":null,"Manish":-600},other:-8800,otherDesc:"Arjun",totalPot:17000},
+  {dateLabel:"17 Jan 2026",dateISO:"2026-01-17",nets:{"Vivek P":3500,"Sunny":null,"Nirav":null,"Sameer":-1500,"Amish":null,"Nimesh":7150,"Sagar":-7900,"Manish":-3500},other:2250,otherDesc:"Vishal",totalPot:12900},
+  {dateLabel:"24 Jan 2026",dateISO:"2026-01-24",nets:{"Vivek P":null,"Sunny":-250,"Nirav":null,"Sameer":null,"Amish":8200,"Nimesh":-5300,"Sagar":-3300,"Manish":650},other:null,otherDesc:null,totalPot:8850},
+  {dateLabel:"25 Jan 2026",dateISO:"2026-01-25",nets:{"Vivek P":-5000,"Sunny":-5250,"Nirav":null,"Sameer":null,"Amish":null,"Nimesh":900,"Sagar":3300,"Manish":-650},other:6700,otherDesc:"Jitu",totalPot:10900},
+  {dateLabel:"31 Jan 2026",dateISO:"2026-01-31",nets:{"Vivek P":null,"Sunny":4450,"Nirav":-2500,"Sameer":4500,"Amish":null,"Nimesh":-5250,"Sagar":8600,"Manish":-9800},other:null,otherDesc:null,totalPot:17550},
+  {dateLabel:"01 Feb 2026",dateISO:"2026-02-01",nets:{"Vivek P":-6500,"Sunny":-4500,"Nirav":-6700,"Sameer":8950,"Amish":null,"Nimesh":-1250,"Sagar":10000,"Manish":null},other:null,otherDesc:null,totalPot:18950},
+  {dateLabel:"08 Feb 2026",dateISO:"2026-02-08",nets:{"Vivek P":-12400,"Sunny":-19500,"Nirav":null,"Sameer":-5500,"Amish":23800,"Nimesh":3500,"Sagar":19250,"Manish":-9150},other:null,otherDesc:null,totalPot:46550},
+  {dateLabel:"11 Feb 2026",dateISO:"2026-02-11",nets:{"Vivek P":-600,"Sunny":null,"Nirav":-850,"Sameer":4200,"Amish":-800,"Nimesh":5100,"Sagar":-6750,"Manish":null},other:-300,otherDesc:"Bank",totalPot:9300},
+  {dateLabel:"22 Feb 2026",dateISO:"2026-02-22",nets:{"Vivek P":-7800,"Sunny":-14900,"Nirav":15350,"Sameer":13300,"Amish":-7000,"Nimesh":14550,"Sagar":-6500,"Manish":-7000},other:null,otherDesc:null,totalPot:43200},
+  {dateLabel:"28 Feb 2026",dateISO:"2026-02-28",nets:{"Vivek P":-5100,"Sunny":6700,"Nirav":1200,"Sameer":11000,"Amish":-4000,"Nimesh":-11000,"Sagar":-600,"Manish":null},other:1800,otherDesc:"Jitu",totalPot:20700},
+  {dateLabel:"01 Mar 2026",dateISO:"2026-03-01",nets:{"Vivek P":-11200,"Sunny":-1200,"Nirav":8400,"Sameer":16600,"Amish":10400,"Nimesh":-13500,"Sagar":-1000,"Manish":-8500},other:null,otherDesc:null,totalPot:35400},
+  {dateLabel:"03 Mar 2026",dateISO:"2026-03-03",nets:{"Vivek P":1650,"Sunny":-4750,"Nirav":3250,"Sameer":-11100,"Amish":6000,"Nimesh":300,"Sagar":4650,"Manish":null},other:null,otherDesc:null,totalPot:15850},
+  {dateLabel:"08 Mar 2026",dateISO:"2026-03-08",nets:{"Vivek P":9400,"Sunny":18200,"Nirav":-4350,"Sameer":null,"Amish":-4500,"Nimesh":-3750,"Sagar":-15000,"Manish":null},other:null,otherDesc:null,totalPot:27600},
+  {dateLabel:"14 Mar 2026",dateISO:"2026-03-14",nets:{"Vivek P":4300,"Sunny":-15000,"Nirav":8000,"Sameer":11000,"Amish":7050,"Nimesh":-7000,"Sagar":-3000,"Manish":null},other:-5350,otherDesc:"Jitu",totalPot:30350},
+  {dateLabel:"15 Mar 2026",dateISO:"2026-03-15",nets:{"Vivek P":-5000,"Sunny":-5100,"Nirav":2700,"Sameer":2150,"Amish":3200,"Nimesh":-2000,"Sagar":4050,"Manish":null},other:null,otherDesc:null,totalPot:12100},
+  {dateLabel:"21 Mar 2026",dateISO:"2026-03-21",nets:{"Vivek P":2500,"Sunny":null,"Nirav":null,"Sameer":500,"Amish":-2600,"Nimesh":6950,"Sagar":5300,"Manish":null},other:-12650,otherDesc:"Rishi",totalPot:15250},
+  {dateLabel:"26 Mar 2026",dateISO:"2026-03-26",nets:{"Vivek P":-6900,"Sunny":null,"Nirav":750,"Sameer":-7000,"Amish":-13700,"Nimesh":16350,"Sagar":11000,"Manish":-1000},other:500,otherDesc:"Club",totalPot:28600},
+  {dateLabel:"28 Mar 2026",dateISO:"2026-03-28",nets:{"Vivek P":9500,"Sunny":null,"Nirav":null,"Sameer":19750,"Amish":-20500,"Nimesh":2950,"Sagar":-6700,"Manish":-5000},other:null,otherDesc:null,totalPot:32200},
+  {dateLabel:"02 Apr 2026",dateISO:"2026-04-02",nets:{"Vivek P":null,"Sunny":null,"Nirav":-4750,"Sameer":500,"Amish":15650,"Nimesh":100,"Sagar":-3000,"Manish":-8500},other:0,otherDesc:"Arjun",totalPot:16250},
+  {dateLabel:"05 Apr 2026",dateISO:"2026-04-05",nets:{"Vivek P":10000,"Sunny":null,"Nirav":19500,"Sameer":3350,"Amish":-4850,"Nimesh":10850,"Sagar":-15000,"Manish":500},other:-24350,otherDesc:"Arjun",totalPot:44200},
+  {dateLabel:"11 Apr 2026",dateISO:"2026-04-11",nets:{"Vivek P":16150,"Sunny":null,"Nirav":3850,"Sameer":-6800,"Amish":700,"Nimesh":-6000,"Sagar":null,"Manish":null},other:-7900,otherDesc:"Savi",totalPot:20700}
+];
+
+const LeagueScreen = window.LeagueScreen;
+const ProfileScreen = window.ProfileScreen;
+const AwardsScreen = window.AwardsScreen;
+const computeAll = window.computeAll;
+const Icon = window.Icon;
+
+const ACCENTS = {
+  graphite: { light: '#111111', dark: '#F2F2F2' },
+  green:    { light: '#2E7D51', dark: '#5CCB89' },
+  blue:     { light: '#1D5FE6', dark: '#6FA3FF' },
+  orange:   { light: '#C85A1E', dark: '#FF9A5A' },
+  purple:   { light: '#6A3AA8', dark: '#C6A3FF' }
+};
+
+function getColors(theme, accentKey) {
+  const accent = ACCENTS[accentKey][theme];
+  if (theme === 'dark') {
+    return {
+      bg: '#000000', surface: '#1C1C1E', surfaceAlt: '#111113',
+      pressed: 'rgba(255,255,255,0.06)', chip: 'rgba(255,255,255,0.08)',
+      text: '#F5F5F7', textSecondary: 'rgba(235,235,245,0.72)', textTertiary: 'rgba(235,235,245,0.45)',
+      separator: 'rgba(255,255,255,0.09)', positive: '#5ED07A', negative: '#FF6A5C',
+      avatarBg: '#242428', avatarText: '#E8E8EC',
+      iconBg: 'rgba(255,255,255,0.08)', accent,
+      tabBg: 'rgba(22,22,24,0.92)', tabBorder: 'rgba(255,255,255,0.08)', tabInactive: 'rgba(235,235,245,0.45)'
+    };
+  }
+  return {
+    bg: '#FFFFFF', surface: '#F7F7F8', surfaceAlt: '#FBFBFC',
+    pressed: 'rgba(0,0,0,0.04)', chip: 'rgba(0,0,0,0.05)',
+    text: '#111113', textSecondary: 'rgba(60,60,67,0.78)', textTertiary: 'rgba(60,60,67,0.48)',
+    separator: 'rgba(60,60,67,0.12)', positive: '#1E8A4D', negative: '#D9382E',
+    avatarBg: '#EEEEF0', avatarText: '#1C1C1E',
+    iconBg: 'rgba(0,0,0,0.045)', accent,
+    tabBg: 'rgba(255,255,255,0.92)', tabBorder: 'rgba(60,60,67,0.12)', tabInactive: 'rgba(60,60,67,0.5)'
+  };
+}
+
+// Parse CSV text into rows, handling quoted fields (e.g., "Vishal, Vikas").
+function parseCSV(text) {
+  const rows = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+        inQuotes = false; i++; continue;
+      }
+      field += c; i++; continue;
+    }
+    if (c === '"') { inQuotes = true; i++; continue; }
+    if (c === ',') { row.push(field); field = ''; i++; continue; }
+    if (c === '\r') { i++; continue; }
+    if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; i++; continue; }
+    field += c; i++;
+  }
+  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+// Parse a date cell. Returns { iso, label } where label is "01 Jan" style for sorted display.
+function parseDateCell(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  // ISO date like "2026-01-01"
+  const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    const d = new Date(Date.UTC(+isoMatch[1], +isoMatch[2] - 1, +isoMatch[3]));
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return {
+      iso: s,
+      label: String(+isoMatch[3]).padStart(2, '0') + ' ' + monthNames[+isoMatch[2] - 1] + ' 2026'
+    };
+  }
+  // Free-form string like "15 Jan 2026 (S1)" — use as-is for label, synthesize ISO for sorting
+  const dmyMatch = s.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/);
+  if (dmyMatch) {
+    const months = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 };
+    const m = months[dmyMatch[2].slice(0,3)];
+    if (m != null) {
+      const iso = dmyMatch[3] + '-' + String(m+1).padStart(2,'0') + '-' + String(+dmyMatch[1]).padStart(2,'0');
+      return { iso, label: s };
+    }
+  }
+  // "1-Jan-26" or "1-Jan-2026" style
+  const dmyDashMatch = s.match(/^(\d{1,2})-([A-Za-z]+)-(\d{2,4})$/);
+  if (dmyDashMatch) {
+    const months = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 };
+    const m = months[dmyDashMatch[2].slice(0,3)];
+    if (m != null) {
+      const yr = +dmyDashMatch[3];
+      const year = yr < 100 ? 2000 + yr : yr;
+      const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const iso = year + '-' + String(m+1).padStart(2,'0') + '-' + String(+dmyDashMatch[1]).padStart(2,'0');
+      return { iso, label: String(+dmyDashMatch[1]).padStart(2,'0') + ' ' + monthNames[m] + ' ' + year };
+    }
+  }
+  // Fallback
+  return { iso: s, label: s };
+}
+
+// Convert numeric cell. Handles accounting notation (8,700) = -8700, dash "-" = 0 (broke even).
+function parseNumCell(raw) {
+  if (raw == null) return null;
+  let s = String(raw).trim();
+  if (s === '') return null;
+  if (s === '-') return 0;  // played but broke even
+  // Accounting negative: (8,700) → -8700
+  const isAcctNeg = s.startsWith('(') && s.endsWith(')');
+  s = s.replace(/[(),]/g, '');
+  if (s === '') return null;
+  const n = Number(s);
+  if (isNaN(n)) return null;
+  return isAcctNeg ? -n : n;
+}
+
+// Convert published CSV into the session shape the design expects.
+// Published format: row 1 is header (Date, Vivek P, Sunny, ..., Manish, Other, Other Desc, blank, Total Pot)
+// Header indexes in the row (0-based): Date=0, Vivek P=1, Sunny=2, Nirav=3, Sameer=4, Amish=5, Nimesh=6, Sagar=7, Manish=8, Other=9, Other Desc=10, blank=11, Total Pot=12
+function parseSessionsFromCSV(csvText) {
+  const rows = parseCSV(csvText);
+  if (rows.length < 4) return [];
+  // Find the header row: row whose column 0 equals "Date"
+  let headerIdx = -1;
+  for (let r = 0; r < Math.min(rows.length, 10); r++) {
+    if ((rows[r][0] || '').trim() === 'Date') { headerIdx = r; break; }
+  }
+  if (headerIdx === -1) return [];
+  const header = rows[headerIdx];
+  // Map player names to their column index (starting after Date, stopping at "Other")
+  const playerNames = ['Vivek P', 'Sunny', 'Nirav', 'Sameer', 'Amish', 'Nimesh', 'Sagar', 'Manish'];
+  const playerCols = {};
+  for (const name of playerNames) {
+    const idx = header.findIndex(h => (h || '').trim() === name);
+    if (idx !== -1) playerCols[name] = idx;
+  }
+  const otherIdx = header.findIndex(h => (h || '').trim() === 'Other');
+  const otherDescIdx = header.findIndex(h => (h || '').trim() === 'Other Desc');
+  const totalPotIdx = header.findIndex(h => (h || '').trim() === 'Total Pot');
+
+  const sessions = [];
+  for (let r = headerIdx + 1; r < rows.length; r++) {
+    const row = rows[r];
+    const date = parseDateCell(row[0]);
+    if (!date) continue; // skip empty or junk rows
+    // Also stop at the "ANALYSIS" row or any row whose first column is a section label
+    if (/^(analysis|total|net|# |games|win %)/i.test((row[0] || '').trim())) break;
+
+    const nets = {};
+    for (const name of playerNames) {
+      nets[name] = playerCols[name] != null ? parseNumCell(row[playerCols[name]]) : null;
+    }
+    sessions.push({
+      dateLabel: date.label,
+      dateISO: date.iso,
+      nets,
+      other: otherIdx !== -1 ? parseNumCell(row[otherIdx]) : null,
+      otherDesc: otherDescIdx !== -1 ? (row[otherDescIdx] || null) : null,
+      totalPot: totalPotIdx !== -1 ? parseNumCell(row[totalPotIdx]) : null
+    });
+  }
+  return sessions;
+}
+
+// Adapt Apps Script JSON response into the session shape the design expects.
+function adaptSessions(apiResponse) {
+  if (!apiResponse || !Array.isArray(apiResponse.sessions)) return [];
+  return apiResponse.sessions.map(s => ({
+    dateLabel: s.label ? (s.label + (s.label.includes('2026') ? '' : ' 2026')) : s.date,
+    dateISO: s.date,
+    nets: s.results || {},
+    other: s.other_amount,
+    otherDesc: s.other_name,
+    totalPot: s.total_pot
+  }));
+}
+
+function ThemeToggle({ theme, onToggle, colors }) {
+  return React.createElement('button', {
+    onClick: onToggle,
+    'aria-label': 'Toggle theme',
+    style: {
+      width: 36, height: 36, borderRadius: 18,
+      background: colors.chip, border: 'none',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      cursor: 'pointer', color: colors.textSecondary, flexShrink: 0
+    }
+  },
+    theme === 'dark'
+      ? React.createElement('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' },
+          React.createElement('circle', { cx: 12, cy: 12, r: 4 }),
+          React.createElement('path', { d: 'M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41' })
+        )
+      : React.createElement('svg', { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' },
+          React.createElement('path', { d: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z' })
+        )
+  );
+}
+
+function StatusChip({ status, lastUpdated, colors, onRetry }) {
+  let label, dotColor;
+  const now = Date.now();
+  const minsAgo = lastUpdated ? Math.round((now - lastUpdated) / 60000) : null;
+  if (status === 'loading') { label = 'Updating'; dotColor = colors.textTertiary; }
+  else if (status === 'error') { label = 'Offline'; dotColor = colors.negative; }
+  else if (minsAgo == null || minsAgo < 1) { label = 'Just now'; dotColor = colors.positive; }
+  else if (minsAgo === 1) { label = '1 min ago'; dotColor = colors.positive; }
+  else { label = minsAgo + ' mins ago'; dotColor = colors.positive; }
+
+  return React.createElement('button', {
+    onClick: onRetry,
+    style: {
+      display: 'inline-flex', alignItems: 'center', gap: 6,
+      padding: '6px 12px', borderRadius: 100,
+      background: colors.chip, border: 'none', cursor: 'pointer',
+      fontSize: 12, fontWeight: 500, letterSpacing: -0.1,
+      color: colors.textSecondary, fontFamily: 'inherit'
+    }
+  },
+    React.createElement('span', {
+      style: {
+        width: 7, height: 7, borderRadius: '50%',
+        background: dotColor,
+        animation: status === 'loading' ? 'pulse 1.4s ease-in-out infinite' : 'none'
+      }
+    }),
+    label
+  );
+}
+
+function TabBar({ active, setActive, colors }) {
+  const tabs = [
+    { id: 'league', label: 'League', icon: 'tab_league' },
+    { id: 'profile', label: 'Profile', icon: 'tab_profile' },
+    { id: 'awards', label: 'Awards', icon: 'tab_awards' }
+  ];
+  return React.createElement('div', {
+    style: {
+      position: 'sticky', bottom: 0, left: 0, right: 0,
+      paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
+      paddingTop: 8,
+      background: colors.tabBg,
+      backdropFilter: 'blur(24px) saturate(180%)',
+      WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+      borderTop: `0.5px solid ${colors.tabBorder}`,
+      display: 'flex', alignItems: 'stretch', zIndex: 10
+    }
+  },
+    tabs.map(t => {
+      const isActive = active === t.id;
+      const c = isActive ? colors.accent : colors.tabInactive;
+      return React.createElement('button', {
+        key: t.id,
+        onClick: () => setActive(t.id),
+        style: {
+          flex: 1, background: 'none', border: 'none',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', gap: 3, cursor: 'pointer',
+          color: c, padding: '4px 0 2px', userSelect: 'none',
+          transition: 'color 160ms ease', fontFamily: 'inherit'
+        }
+      },
+        Icon[t.icon](26, isActive),
+        React.createElement('span', {
+          style: { fontSize: 10, fontWeight: 500, letterSpacing: 0.1, color: c }
+        }, t.label)
+      );
+    })
+  );
+}
+
+function LoadingState({ colors }) {
+  return React.createElement('div', {
+    style: {
+      minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      flexDirection: 'column', gap: 12, color: colors.textTertiary, fontSize: 14
+    }
+  },
+    React.createElement('div', {
+      style: {
+        width: 28, height: 28, borderRadius: '50%',
+        border: `2.5px solid ${colors.separator}`,
+        borderTopColor: colors.text,
+        animation: 'spin 0.8s linear infinite'
+      }
+    }),
+    React.createElement('div', null, 'Loading sessions')
+  );
+}
+
+function ErrorState({ colors, onRetry, message }) {
+  return React.createElement('div', {
+    style: {
+      minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      flexDirection: 'column', gap: 14, padding: 24, textAlign: 'center'
+    }
+  },
+    React.createElement('div', { style: { fontSize: 32, opacity: 0.4 } }, '⚠'),
+    React.createElement('div', {
+      style: { fontSize: 15, color: colors.text, fontWeight: 500, letterSpacing: -0.2 }
+    }, 'Could not load data'),
+    React.createElement('div', {
+      style: { fontSize: 13, color: colors.textTertiary, maxWidth: 280, letterSpacing: -0.1 }
+    }, message || 'Check your connection and try again.'),
+    React.createElement('button', {
+      onClick: onRetry,
+      style: {
+        marginTop: 4, padding: '10px 20px', borderRadius: 100,
+        background: colors.chip, border: 'none', cursor: 'pointer',
+        fontSize: 14, fontWeight: 500, color: colors.text, fontFamily: 'inherit'
+      }
+    }, 'Try again')
+  );
+}
+
+function App() {
+  const [sessions, setSessions] = React.useState(STATIC_SESSIONS);
+  const [loadStatus, setLoadStatus] = React.useState('idle');
+  const [errorMsg, setErrorMsg] = React.useState(null);
+  const [lastUpdated, setLastUpdated] = React.useState(null);
+  const [, setTick] = React.useState(0);
+
+  const [theme, setTheme] = React.useState(() => {
+    try {
+      const saved = localStorage.getItem('pokerTheme');
+      if (saved === 'dark' || saved === 'light') return saved;
+    } catch (e) {}
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  const [tab, setTab] = React.useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('pokerNav') || 'null');
+      if (saved && saved.tab) return saved.tab;
+    } catch (e) {}
+    return 'league';
+  });
+
+  const [selectedName, setSelectedName] = React.useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('pokerNav') || 'null');
+      if (saved && saved.playerName) return saved.playerName;
+    } catch (e) {}
+    return window.PLAYERS[0];
+  });
+
+  React.useEffect(() => {
+    try { localStorage.setItem('pokerNav', JSON.stringify({ tab, playerName: selectedName })); } catch (e) {}
+  }, [tab, selectedName]);
+
+  React.useEffect(() => {
+    try { localStorage.setItem('pokerTheme', theme); } catch (e) {}
+    document.body.style.background = theme === 'dark' ? '#000' : '#fff';
+  }, [theme]);
+
+  // Background fetch: silently tries live CSV and updates only when it returns
+  // more sessions than the embedded static data (i.e. new games have been added).
+  // Static data always stays visible — no loading/error states shown to the user.
+  const fetchData = React.useCallback(async () => {
+    try {
+      const res = await fetch(CSV_URL + '&t=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) return;
+      const text = await res.text();
+      const fetched = parseSessionsFromCSV(text);
+      if (fetched.length >= STATIC_SESSIONS.length) {
+        setSessions(fetched);
+        setLastUpdated(Date.now());
+      }
+    } catch (e) {
+      // Silently ignore — static data already shown
+    }
+  }, []);
+
+  React.useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Auto-refresh when tab becomes visible again and on interval
+  React.useEffect(() => {
+    const id = setInterval(fetchData, REFRESH_INTERVAL_MS);
+    const onVis = () => { if (document.visibilityState === 'visible') fetchData(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
+  }, [fetchData]);
+
+  // Tick every 30s so "X mins ago" label stays accurate
+  React.useEffect(() => {
+    const id = setInterval(() => setTick(n => n + 1), 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  const state = React.useMemo(() => sessions ? computeAll(sessions) : null, [sessions]);
+  const colors = React.useMemo(() => getColors(theme, 'graphite'), [theme]);
+  const accent = colors.accent;
+
+  const goTo = ({ tab: t, playerName }) => {
+    if (playerName) setSelectedName(playerName);
+    if (t) setTab(t);
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  };
+
+  let content;
+  if (!sessions && loadStatus === 'loading') {
+    content = React.createElement(LoadingState, { colors });
+  } else if (!sessions && loadStatus === 'error') {
+    content = React.createElement(ErrorState, { colors, onRetry: fetchData, message: errorMsg });
+  } else if (state) {
+    if (tab === 'league') content = React.createElement(LeagueScreen, { state, goTo, colors, accent });
+    else if (tab === 'profile') content = React.createElement(ProfileScreen, { state, selectedName, setSelectedName, colors, accent });
+    else content = React.createElement(AwardsScreen, { state, goTo, colors, accent });
+  }
+
+  return React.createElement('div', {
+    style: {
+      minHeight: '100vh', background: colors.bg, color: colors.text,
+      display: 'flex', flexDirection: 'column',
+      fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif"
+    }
+  },
+    // Safe-area-aware top padding, then the top bar with theme toggle + status chip
+    React.createElement('div', {
+      style: {
+        paddingTop: 'max(12px, env(safe-area-inset-top))',
+        paddingLeft: 20, paddingRight: 20,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        gap: 10
+      }
+    },
+      React.createElement(StatusChip, {
+        status: loadStatus, lastUpdated, colors, onRetry: fetchData
+      }),
+      React.createElement(ThemeToggle, {
+        theme, colors,
+        onToggle: () => setTheme(t => t === 'dark' ? 'light' : 'dark')
+      })
+    ),
+    React.createElement('div', {
+      id: 'screen-scroll',
+      style: { flex: 1, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch' }
+    }, content),
+    sessions && React.createElement(TabBar, { active: tab, setActive: setTab, colors })
+  );
+}
+
+window.App = App;
+})();
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(window.App));
+  </script>
+</body>
+</html>
