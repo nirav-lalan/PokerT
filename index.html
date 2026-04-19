@@ -1088,6 +1088,7 @@ function StatCell({
   label,
   value,
   color,
+  sub,
   colors
 }) {
   return /*#__PURE__*/React.createElement("div", {
@@ -1111,7 +1112,18 @@ function StatCell({
       color: color || colors.text,
       fontVariantNumeric: 'tabular-nums'
     }
-  }, value));
+  }, value), sub && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: colors.textTertiary,
+      marginTop: 4,
+      letterSpacing: -0.1,
+      fontVariantNumeric: 'tabular-nums',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis'
+    }
+  }, sub));
 }
 function Last5Dots({
   last5,
@@ -1333,15 +1345,24 @@ function ProfileScreen({
     value: player.profitabilityFactor != null ? player.profitabilityFactor.toFixed(2) + '×' : player.grossWins > 0 ? '∞' : '—',
     color: player.profitabilityFactor != null ? (player.profitabilityFactor >= 1 ? colors.positive : colors.negative) : player.grossWins > 0 ? colors.positive : undefined,
     colors: colors
-  }), /*#__PURE__*/React.createElement(StatCell, {
-    label: "Rank (gross)",
-    value: '#' + player.rank + ' of ' + league.length,
-    colors: colors
-  }), /*#__PURE__*/React.createElement(StatCell, {
-    label: "Rank (after fee)",
-    value: '#' + player.rankAfterFee + ' of ' + league.length,
-    colors: colors
-  }), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement(StatCell, (() => {
+    const idx = player.rank - 1;
+    const ord = (n) => { const s = ['th','st','nd','rd'], v = n % 100; return n + (s[(v-20)%10]||s[v]||s[0]); };
+    if (player.rank === 1) {
+      const below = league[idx + 1];
+      return { label: 'Rank', value: ord(player.rank) + ' of ' + league.length, sub: below ? 'Lead ' + formatINR(player.net - below.net) + ' · ' + below.name : null, colors };
+    }
+    const above = league[idx - 1];
+    return { label: 'Rank', value: ord(player.rank) + ' of ' + league.length, sub: above ? formatINR(above.net - player.net) + ' to ' + above.name : null, colors };
+  })()), /*#__PURE__*/React.createElement(StatCell, (() => {
+    const idx = player.rank - 1;
+    const ord = (n) => { const s = ['th','st','nd','rd'], v = n % 100; return n + (s[(v-20)%10]||s[v]||s[0]); };
+    if (player.rank === league.length) {
+      return { label: 'Below', value: '—', sub: 'At bottom', colors };
+    }
+    const below = league[idx + 1];
+    return { label: 'Lead over ' + ord(player.rank + 1), value: formatINR(player.net - below.net), sub: below.name, colors };
+  })()), /*#__PURE__*/React.createElement("div", {
     style: {
       padding: '14px 0'
     }
@@ -2273,13 +2294,7 @@ function App() {
     return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
-  const [tab, setTab] = React.useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('pokerNav') || 'null');
-      if (saved && saved.tab) return saved.tab;
-    } catch (e) {}
-    return 'league';
-  });
+  const [tab, setTab] = React.useState('league');
 
   const [selectedName, setSelectedName] = React.useState(() => {
     try {
