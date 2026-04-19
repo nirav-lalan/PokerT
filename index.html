@@ -417,6 +417,18 @@ const Icon = {
     d: "M17 5h3v1a3 3 0 0 1-3 3"
   }), /*#__PURE__*/React.createElement("path", {
     d: "M10 13h4v4h-4zM8 19h8"
+  })),
+  tab_sessions: (s = 24, filled = false) => filled ? /*#__PURE__*/React.createElement("svg", {
+    width: s, height: s, viewBox: "0 0 24 24", fill: "currentColor"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5zm3 3h10v1.5H7V8zm0 3.75h10v1.5H7v-1.5zM7 15.5h6V17H7v-1.5z"
+  })) : /*#__PURE__*/React.createElement("svg", {
+    width: s, height: s, viewBox: "0 0 24 24", fill: "none",
+    stroke: "currentColor", strokeWidth: "1.6", strokeLinecap: "round", strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("rect", {
+    x: "4", y: "3", width: "16", height: "18", rx: "2"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M7 8h10M7 12h10M7 16h6"
   }))
 };
 window.Icon = Icon;
@@ -1551,6 +1563,340 @@ Object.assign(window, {
 })();
 
 (function(){
+// Sessions screen — session history with grid/card variants and detail modal
+const { formatINR, initials } = window;
+const Avatar = window.Avatar;
+const Icon = window.Icon;
+
+function SessionsScreen({ state, sessions, colors, accent, goTo }) {
+  const h = React.createElement;
+  const [variant, setVariant] = React.useState(() => {
+    try { return localStorage.getItem('pokerSessionsVariant') || 'grid'; } catch (e) { return 'grid'; }
+  });
+  const [detail, setDetail] = React.useState(null);
+  const [tweaksOpen, setTweaksOpen] = React.useState(false);
+
+  const changeVariant = (v) => {
+    setVariant(v);
+    try { localStorage.setItem('pokerSessionsVariant', v); } catch (e) {}
+  };
+
+  const meta = React.useMemo(() => {
+    let maxPot = -Infinity, maxPotIdx = -1;
+    let maxWin = -Infinity, maxWinIdx = -1, maxWinPlayer = null;
+    let maxLoss = Infinity, maxLossIdx = -1, maxLossPlayer = null;
+    sessions.forEach((s, i) => {
+      if (s.totalPot > maxPot) { maxPot = s.totalPot; maxPotIdx = i; }
+      for (const [name, v] of Object.entries(s.nets)) {
+        if (v == null) continue;
+        if (v > maxWin) { maxWin = v; maxWinIdx = i; maxWinPlayer = name; }
+        if (v < maxLoss) { maxLoss = v; maxLossIdx = i; maxLossPlayer = name; }
+      }
+    });
+    return { maxPotIdx, maxWinIdx, maxWinPlayer, maxLossIdx, maxLossPlayer };
+  }, [sessions]);
+
+  const grouped = React.useMemo(() => {
+    const byMonth = {};
+    sessions.forEach((s, i) => {
+      const d = new Date(s.dateISO);
+      const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      const label = d.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+      if (!byMonth[key]) byMonth[key] = { key, label, items: [] };
+      byMonth[key].items.push({ s, i });
+    });
+    return Object.values(byMonth).sort((a, b) => b.key.localeCompare(a.key))
+      .map(g => ({ ...g, items: g.items.slice().reverse() }));
+  }, [sessions]);
+
+  const title = h('div', { style: { padding: '16px 20px 8px' } },
+    h('div', { style: { fontSize: 34, fontWeight: 700, letterSpacing: -1, color: colors.text } }, 'Sessions'),
+    h('div', { style: { fontSize: 15, color: colors.textTertiary, marginTop: 4, letterSpacing: -0.2 } },
+      sessions.length + ' sessions · ' + formatINR(sessions.reduce((a, s) => a + s.totalPot, 0)) + ' total pot')
+  );
+
+  const body = variant === 'grid'
+    ? h(SessionsGridVariant, { grouped, meta, colors, onOpen: setDetail })
+    : h(SessionsCardVariant, { grouped, meta, colors, onOpen: setDetail });
+
+  return h('div', { style: { paddingBottom: 40 } },
+    title,
+    body,
+    tweaksOpen && h(TweakPanel, { variant, onChange: changeVariant, onClose: () => setTweaksOpen(false), colors }),
+    detail != null && h(SessionDetail, { sessionIdx: detail, sessions, state, meta, colors, onClose: () => setDetail(null), goTo })
+  );
+}
+
+function SessionsGridVariant({ grouped, meta, colors, onOpen }) {
+  const h = React.createElement;
+  const PLAYERS = window.PLAYERS;
+  return h('div', null,
+    grouped.map(g =>
+      h('div', { key: g.key, style: { marginTop: 14 } },
+        h('div', { style: { padding: '10px 20px 8px', fontSize: 11, color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.6, fontWeight: 600 } }, g.label),
+        h('div', { style: { borderTop: `0.5px solid ${colors.separator}` } },
+          g.items.map(({ s, i }) => h(SessionGridRow, { key: i, s, i, meta, colors, onOpen }))
+        )
+      )
+    )
+  );
+}
+
+function SessionGridRow({ s, i, meta, colors, onOpen }) {
+  const h = React.createElement;
+  const PLAYERS = window.PLAYERS;
+  const d = new Date(s.dateISO);
+  const dayNum = d.getDate();
+  const monthAbbr = d.toLocaleString('en-IN', { month: 'short' });
+  const isDouble = /\(S[12]\)/.test(s.dateLabel);
+  const isRecord = i === meta.maxPotIdx;
+  const hasBig = i === meta.maxWinIdx || i === meta.maxLossIdx;
+  const played = PLAYERS.filter(p => s.nets[p] != null);
+  const ordered = PLAYERS.map(p => ({ name: p, net: s.nets[p] })).sort((a, b) => (b.net ?? -1e9) - (a.net ?? -1e9));
+
+  return h('button', {
+    onClick: () => onOpen(i),
+    style: { display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '14px 20px', borderBottom: `0.5px solid ${colors.separator}`, cursor: 'pointer', fontFamily: 'inherit', color: colors.text }
+  },
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: 14 } },
+      h('div', { style: { width: 44, flexShrink: 0 } },
+        h('div', { style: { fontSize: 22, fontWeight: 700, letterSpacing: -0.8, lineHeight: 1, color: colors.text, fontVariantNumeric: 'tabular-nums' } }, dayNum),
+        h('div', { style: { fontSize: 10, color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 3, fontWeight: 600 } }, monthAbbr + (isDouble ? ' · ' + (s.dateLabel.match(/S\d/) || ['S?'])[0] : ''))
+      ),
+      h('div', { style: { flex: 1, minWidth: 0 } },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' } },
+          h('span', { style: { fontSize: 14, fontWeight: 600, color: colors.text, letterSpacing: -0.2 } }, formatINR(s.totalPot)),
+          h('span', { style: { fontSize: 12, color: colors.textTertiary } }, '·'),
+          h('span', { style: { fontSize: 12, color: colors.textTertiary } }, played.length + ' players'),
+          isRecord && h(Marker, { label: 'RECORD POT', colors, tone: 'accent' }),
+          hasBig && !isRecord && h(Marker, { label: i === meta.maxWinIdx ? 'BIG WIN' : 'BIG LOSS', colors, tone: i === meta.maxWinIdx ? 'pos' : 'neg' })
+        ),
+        h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 2, marginTop: 10 } },
+          PLAYERS.map(p => {
+            const v = s.nets[p];
+            return h('div', {
+              key: p,
+              style: { height: 28, borderRadius: 4, background: v == null ? 'transparent' : (v > 0 ? 'rgba(30,138,77,0.12)' : v < 0 ? 'rgba(217,56,46,0.12)' : colors.chip), border: v == null ? `1px dashed ${colors.separator}` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 600, color: v == null ? colors.textTertiary : (v > 0 ? colors.positive : v < 0 ? colors.negative : colors.textSecondary), fontVariantNumeric: 'tabular-nums', letterSpacing: -0.1, opacity: v == null ? 0.5 : 1 },
+              title: p + (v == null ? ' · did not play' : ' · ' + formatINR(v, { sign: true }))
+            }, v == null ? initials(p).charAt(0) : (Math.abs(v) >= 1000 ? (v > 0 ? '+' : '−') + Math.round(Math.abs(v) / 1000) + 'k' : (v > 0 ? '+' : '−') + Math.abs(v)));
+          })
+        )
+      ),
+      Icon.chevron(14)
+    )
+  );
+}
+
+function SessionsCardVariant({ grouped, meta, colors, onOpen }) {
+  const h = React.createElement;
+  return h('div', { style: { padding: '0 16px' } },
+    grouped.map(g =>
+      h('div', { key: g.key, style: { marginTop: 20 } },
+        h('div', { style: { padding: '0 4px 10px', fontSize: 11, color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.6, fontWeight: 600 } }, g.label),
+        h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+          g.items.map(({ s, i }) => h(SessionCard, { key: i, s, i, meta, colors, onOpen }))
+        )
+      )
+    )
+  );
+}
+
+function SessionCard({ s, i, meta, colors, onOpen }) {
+  const h = React.createElement;
+  const PLAYERS = window.PLAYERS;
+  const d = new Date(s.dateISO);
+  const dateStr = d.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  const weekday = d.toLocaleString('en-IN', { weekday: 'long' });
+  const isDouble = /\(S[12]\)/.test(s.dateLabel);
+  const sessionNum = isDouble ? (s.dateLabel.match(/S\d/) || [''])[0] : '';
+  const isRecord = i === meta.maxPotIdx;
+  const isBigWin = i === meta.maxWinIdx;
+  const isBigLoss = i === meta.maxLossIdx;
+  const played = PLAYERS.map(p => ({ name: p, net: s.nets[p] })).filter(p => p.net != null).sort((a, b) => b.net - a.net);
+  const winner = played[0];
+
+  return h('button', {
+    onClick: () => onOpen(i),
+    style: { display: 'block', width: '100%', textAlign: 'left', background: colors.surface, border: isRecord ? `1.5px solid ${colors.text}` : `1px solid ${colors.separator}`, borderRadius: 16, padding: '16px 16px 14px', cursor: 'pointer', fontFamily: 'inherit', color: colors.text }
+  },
+    h('div', { style: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 } },
+      h('div', null,
+        h('div', { style: { fontSize: 12, color: colors.textTertiary, fontWeight: 500, letterSpacing: -0.1 } }, weekday + (sessionNum ? ' · ' + sessionNum : '')),
+        h('div', { style: { fontSize: 17, fontWeight: 600, color: colors.text, letterSpacing: -0.3, marginTop: 2 } }, dateStr)
+      ),
+      h('div', { style: { display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' } },
+        isRecord && h(Marker, { label: 'RECORD', colors, tone: 'accent' }),
+        isBigWin && h(Marker, { label: 'BIG WIN', colors, tone: 'pos' }),
+        isBigLoss && h(Marker, { label: 'BIG LOSS', colors, tone: 'neg' })
+      )
+    ),
+    h('div', { style: { display: 'flex', alignItems: 'flex-end', gap: 20, marginTop: 14, paddingBottom: 12, borderBottom: `0.5px solid ${colors.separator}` } },
+      h('div', { style: { flex: 1 } },
+        h('div', { style: { fontSize: 10, color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.6, fontWeight: 600 } }, 'Pot'),
+        h('div', { style: { fontSize: 28, fontWeight: 700, letterSpacing: -1, color: colors.text, fontVariantNumeric: 'tabular-nums', marginTop: 2, lineHeight: 1 } }, formatINR(s.totalPot))
+      ),
+      winner && h('div', { style: { textAlign: 'right' } },
+        h('div', { style: { fontSize: 10, color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.6, fontWeight: 600 } }, 'Top'),
+        h('div', { style: { fontSize: 14, fontWeight: 600, color: colors.text, marginTop: 2 } }, winner.name),
+        h('div', { style: { fontSize: 15, fontWeight: 700, color: colors.positive, fontVariantNumeric: 'tabular-nums', letterSpacing: -0.3 } }, formatINR(winner.net, { sign: true }))
+      )
+    ),
+    h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginTop: 12 } },
+      PLAYERS.map(p => {
+        const v = s.nets[p];
+        const didPlay = v != null;
+        return h('div', {
+          key: p,
+          style: { padding: '6px 8px', borderRadius: 8, background: !didPlay ? 'transparent' : (v > 0 ? 'rgba(30,138,77,0.08)' : v < 0 ? 'rgba(217,56,46,0.08)' : colors.chip), border: !didPlay ? `1px dashed ${colors.separator}` : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: didPlay ? 1 : 0.45 }
+        },
+          h('span', { style: { fontSize: 11, color: didPlay ? colors.text : colors.textTertiary, fontWeight: 500 } }, p),
+          h('span', { style: { fontSize: 11, fontWeight: 700, color: !didPlay ? colors.textTertiary : (v > 0 ? colors.positive : v < 0 ? colors.negative : colors.textSecondary), fontVariantNumeric: 'tabular-nums' } },
+            didPlay ? (Math.abs(v) >= 1000 ? (v > 0 ? '+' : '−') + (Math.abs(v) / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : formatINR(v, { sign: true })) : '—')
+        );
+      })
+    )
+  );
+}
+
+function Marker({ label, tone, colors }) {
+  const h = React.createElement;
+  const bg = tone === 'accent' ? colors.text : tone === 'pos' ? colors.positive : colors.negative;
+  return h('span', { style: { display: 'inline-block', fontSize: 9, fontWeight: 700, letterSpacing: 0.6, padding: '2px 6px', borderRadius: 3, background: bg, color: colors.bg, textTransform: 'uppercase' } }, label);
+}
+
+function SessionDetail({ sessionIdx, sessions, state, meta, colors, onClose, goTo }) {
+  const h = React.createElement;
+  const PLAYERS = window.PLAYERS;
+  const s = sessions[sessionIdx];
+  const d = new Date(s.dateISO);
+  const dateStr = d.toLocaleString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const isDouble = /\(S[12]\)/.test(s.dateLabel);
+
+  const ordered = PLAYERS.map(p => ({ name: p, net: s.nets[p] })).filter(p => p.net != null).sort((a, b) => b.net - a.net);
+  const absent = PLAYERS.filter(p => s.nets[p] == null);
+
+  const before = {}, after = {};
+  for (const p of PLAYERS) { before[p] = 0; after[p] = 0; }
+  sessions.forEach((ss, i) => {
+    for (const p of PLAYERS) {
+      const v = ss.nets[p] || 0;
+      if (i < sessionIdx) before[p] += v;
+      if (i <= sessionIdx) after[p] += v;
+    }
+  });
+  const rankOrder = (m) => PLAYERS.map(p => ({ p, v: m[p] })).sort((a, b) => b.v - a.v).map((x, i) => ({ ...x, rank: i + 1 }));
+  const rankMap = (arr) => { const m = {}; arr.forEach(x => m[x.p] = x.rank); return m; };
+  const rb = rankMap(rankOrder(before)), ra = rankMap(rankOrder(after));
+
+  const streakNotes = [];
+  for (const p of PLAYERS) {
+    if (s.nets[p] == null) continue;
+    const plays = [];
+    for (let i = 0; i <= sessionIdx; i++) if (sessions[i].nets[p] != null) plays.push({ i, net: sessions[i].nets[p] });
+    if (plays.length < 2) continue;
+    const cur = plays[plays.length - 1];
+    let prevStreak = 0, prevType = null;
+    for (let k = plays.length - 2; k >= 0; k--) {
+      const t = plays[k].net > 0 ? 'win' : plays[k].net < 0 ? 'loss' : null;
+      if (prevType == null) { if (t == null) break; prevType = t; prevStreak = 1; }
+      else if (t === prevType) prevStreak++;
+      else break;
+    }
+    const curType = cur.net > 0 ? 'win' : cur.net < 0 ? 'loss' : null;
+    if (prevStreak >= 3 && curType && curType !== prevType) streakNotes.push({ player: p, prevStreak, prevType });
+  }
+
+  const swing = ordered.length ? ordered[0].net - ordered[ordered.length - 1].net : 0;
+
+  return h('div', { onClick: onClose, style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' } },
+    h('div', { onClick: (e) => e.stopPropagation(), style: { background: colors.bg, width: '100%', maxHeight: '92vh', overflowY: 'auto', borderRadius: '20px 20px 0 0', padding: '12px 0 32px', boxShadow: '0 -8px 32px rgba(0,0,0,0.12)' } },
+      h('div', { style: { width: 36, height: 4, background: colors.separator, borderRadius: 2, margin: '6px auto 12px' } }),
+      h('div', { style: { padding: '0 20px 16px', borderBottom: `0.5px solid ${colors.separator}` } },
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 } },
+          h('div', null,
+            h('div', { style: { fontSize: 12, color: colors.textTertiary, fontWeight: 500, letterSpacing: -0.1 } }, dateStr + (isDouble ? ' · ' + (s.dateLabel.match(/S\d/) || [''])[0] : '')),
+            h('div', { style: { fontSize: 32, fontWeight: 700, letterSpacing: -1, color: colors.text, fontVariantNumeric: 'tabular-nums', marginTop: 4, lineHeight: 1 } }, formatINR(s.totalPot)),
+            h('div', { style: { fontSize: 13, color: colors.textTertiary, marginTop: 6, letterSpacing: -0.1 } }, ordered.length + ' played · swing ' + formatINR(swing))
+          ),
+          h('button', { onClick: onClose, style: { width: 32, height: 32, borderRadius: 16, background: colors.chip, border: 'none', cursor: 'pointer', color: colors.textSecondary, fontSize: 18, lineHeight: 1, flexShrink: 0 } }, '×')
+        ),
+        h('div', { style: { display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' } },
+          sessionIdx === meta.maxPotIdx && h(Marker, { label: 'RECORD POT', colors, tone: 'accent' }),
+          sessionIdx === meta.maxWinIdx && h(Marker, { label: 'BIGGEST WIN ' + formatINR(Math.max(...ordered.map(o => o.net)), { sign: true }), colors, tone: 'pos' }),
+          sessionIdx === meta.maxLossIdx && h(Marker, { label: 'BIGGEST LOSS ' + formatINR(Math.min(...ordered.map(o => o.net))), colors, tone: 'neg' })
+        )
+      ),
+      h('div', { style: { padding: '16px 0 8px' } },
+        h('div', { style: { padding: '0 20px 10px', fontSize: 11, color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.6, fontWeight: 600 } }, 'Results'),
+        ordered.map((p, idx) => {
+          const rankChange = rb[p.name] - ra[p.name];
+          return h('button', {
+            key: p.name,
+            onClick: () => { onClose(); goTo({ tab: 'profile', playerName: p.name }); },
+            style: { display: 'flex', width: '100%', alignItems: 'center', gap: 12, padding: '12px 20px', background: 'none', border: 'none', textAlign: 'left', borderTop: idx === 0 ? `0.5px solid ${colors.separator}` : 'none', borderBottom: `0.5px solid ${colors.separator}`, cursor: 'pointer', fontFamily: 'inherit', color: colors.text }
+          },
+            h('div', { style: { width: 18, fontSize: 12, color: colors.textTertiary, fontVariantNumeric: 'tabular-nums' } }, idx + 1),
+            h(Avatar, { name: p.name, size: 28, colors }),
+            h('div', { style: { flex: 1, minWidth: 0 } },
+              h('div', { style: { fontSize: 14, fontWeight: 500, color: colors.text, letterSpacing: -0.2 } }, p.name),
+              h('div', { style: { fontSize: 11, color: colors.textTertiary, marginTop: 1, display: 'flex', gap: 6, alignItems: 'center' } },
+                h('span', null, '#' + ra[p.name] + ' overall'),
+                rankChange !== 0 && h('span', { style: { color: rankChange > 0 ? colors.positive : colors.negative, fontWeight: 600 } }, rankChange > 0 ? '▲ ' + rankChange : '▼ ' + Math.abs(rankChange))
+              )
+            ),
+            h('div', { style: { fontSize: 15, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: p.net > 0 ? colors.positive : p.net < 0 ? colors.negative : colors.textSecondary, letterSpacing: -0.3 } }, formatINR(p.net, { sign: true }))
+          );
+        }),
+        absent.length > 0 && h('div', { style: { padding: '14px 20px', fontSize: 12, color: colors.textTertiary, letterSpacing: -0.1 } }, 'Did not play · ' + absent.join(', ')),
+        s.other != null && h('div', { style: { padding: '0 20px 14px', fontSize: 12, color: colors.textTertiary, letterSpacing: -0.1 } },
+          'Guest ' + (s.otherDesc || '') + ': ',
+          h('span', { style: { color: s.other > 0 ? colors.positive : colors.negative, fontWeight: 600, fontVariantNumeric: 'tabular-nums' } }, formatINR(s.other, { sign: true }))
+        )
+      ),
+      h('div', { style: { padding: '8px 20px 12px' } },
+        h('div', { style: { fontSize: 11, color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.6, fontWeight: 600, marginBottom: 10 } }, 'Highlights'),
+        h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+          ordered.length > 0 && h(HighlightRow, { colors, label: 'Biggest winner', value: ordered[0].name + ' · ' + formatINR(ordered[0].net, { sign: true }), tone: 'pos' }),
+          ordered.length > 1 && h(HighlightRow, { colors, label: 'Biggest loss', value: ordered[ordered.length - 1].name + ' · ' + formatINR(ordered[ordered.length - 1].net), tone: 'neg' }),
+          h(HighlightRow, { colors, label: 'Swing (top ↔ bottom)', value: formatINR(swing) }),
+          streakNotes.map((n, idx) => h(HighlightRow, { key: 'streak' + idx, colors, label: n.prevType === 'win' ? 'Win streak broken' : 'Loss streak broken', value: n.player + ' · after ' + n.prevStreak + ' in a row', tone: n.prevType === 'win' ? 'neg' : 'pos' }))
+        )
+      )
+    )
+  );
+}
+
+function HighlightRow({ label, value, tone, colors }) {
+  const h = React.createElement;
+  const dotColor = tone === 'pos' ? colors.positive : tone === 'neg' ? colors.negative : colors.textTertiary;
+  return h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: colors.surface, borderRadius: 8 } },
+    h('div', { style: { width: 6, height: 6, borderRadius: 3, background: dotColor, flexShrink: 0 } }),
+    h('div', { style: { fontSize: 12, color: colors.textSecondary, flex: 1, letterSpacing: -0.1 } }, label),
+    h('div', { style: { fontSize: 12, color: colors.text, fontWeight: 600, letterSpacing: -0.1, fontVariantNumeric: 'tabular-nums' } }, value)
+  );
+}
+
+function TweakPanel({ variant, onChange, onClose, colors }) {
+  const h = React.createElement;
+  return h('div', { style: { position: 'fixed', bottom: 84, right: 16, left: 16, maxWidth: 320, marginLeft: 'auto', background: colors.bg, border: `1px solid ${colors.separator}`, borderRadius: 14, padding: '14px 16px', boxShadow: '0 12px 40px rgba(0,0,0,0.18)', zIndex: 60 } },
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 } },
+      h('div', { style: { fontSize: 13, fontWeight: 700, color: colors.text, letterSpacing: -0.2 } }, 'Tweaks'),
+      h('button', { onClick: onClose, style: { background: 'none', border: 'none', color: colors.textTertiary, cursor: 'pointer', fontSize: 16, padding: 0 } }, '×')
+    ),
+    h('div', { style: { fontSize: 11, color: colors.textTertiary, textTransform: 'uppercase', letterSpacing: 0.6, fontWeight: 600, marginBottom: 6 } }, 'Sessions layout'),
+    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 } },
+      ['grid', 'card'].map(v => h('button', {
+        key: v, onClick: () => onChange(v),
+        style: { padding: '10px 8px', borderRadius: 8, border: `1px solid ${variant === v ? colors.text : colors.separator}`, background: variant === v ? colors.text : 'transparent', color: variant === v ? colors.bg : colors.text, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
+      }, v === 'grid' ? 'Grid ledger' : 'Card story'))
+    )
+  );
+}
+
+Object.assign(window, { SessionsScreen });
+})();
+
+(function(){
 // Production App shell: live data from published Google Sheet CSV, real-phone ergonomics, theme toggle.
 // Design tokens, typography, and component structure preserved from the original design.
 
@@ -1593,6 +1939,7 @@ const STATIC_SESSIONS = [
 const LeagueScreen = window.LeagueScreen;
 const ProfileScreen = window.ProfileScreen;
 const AwardsScreen = window.AwardsScreen;
+const SessionsScreen = window.SessionsScreen;
 const computeAll = window.computeAll;
 const Icon = window.Icon;
 
@@ -1828,6 +2175,7 @@ function StatusChip({ status, lastUpdated, colors, onRetry }) {
 function TabBar({ active, setActive, colors }) {
   const tabs = [
     { id: 'league', label: 'League', icon: 'tab_league' },
+    { id: 'sessions', label: 'Sessions', icon: 'tab_sessions' },
     { id: 'profile', label: 'Profile', icon: 'tab_profile' },
     { id: 'awards', label: 'Awards', icon: 'tab_awards' }
   ];
@@ -2001,6 +2349,7 @@ function App() {
     content = React.createElement(ErrorState, { colors, onRetry: fetchData, message: errorMsg });
   } else if (state) {
     if (tab === 'league') content = React.createElement(LeagueScreen, { state, goTo, colors, accent });
+    else if (tab === 'sessions') content = React.createElement(SessionsScreen, { state, sessions, colors, accent, goTo });
     else if (tab === 'profile') content = React.createElement(ProfileScreen, { state, selectedName, setSelectedName, colors, accent });
     else content = React.createElement(AwardsScreen, { state, goTo, colors, accent });
   }
